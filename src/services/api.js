@@ -91,9 +91,17 @@ export const menuItemAPI = {
     return api.post('/menu-items', data, config);
   },
   update: (id, data) => {
-    const config = data instanceof FormData
+    const isFormData = data instanceof FormData;
+    const config = isFormData
       ? { headers: { 'Content-Type': 'multipart/form-data' } }
       : undefined;
+
+    // PHP does not parse multipart bodies on PUT, so files go as POST + _method=PUT
+    if (isFormData) {
+      data.append('_method', 'PUT');
+      return api.post(`/menu-items/${id}`, data, config);
+    }
+
     return api.put(`/menu-items/${id}`, data, config);
   },
   delete: (id) => api.delete(`/menu-items/${id}`),
@@ -165,7 +173,6 @@ export const ratingAPI = {
 // Admin APIs
 export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
-  getCategories: () => api.get('/admin/categories'),
   getUsers: (params) => api.get('/admin/users', { params }),
   updateUserStatus: (id, data) => api.put(`/admin/users/${id}/status`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
@@ -173,14 +180,26 @@ export const adminAPI = {
   getRestaurant: (id) => api.get(`/admin/restaurants/${id}`),
   updateRestaurantStatus: (id, data) => api.put(`/admin/restaurants/${id}/status`, data),
   toggleFeatured: (id) => api.post(`/admin/restaurants/${id}/toggle-featured`),
-  updateRestaurant: (id, data) => api.put(`/admin/restaurants/${id}`, data),
-  createRestaurant: (data) => api.post('/admin/restaurants', data),
+  updateRestaurant: (id, data) => {
+    if (data instanceof FormData) {
+      if (!data.has('_method')) {
+        data.append('_method', 'PUT');
+      }
+      return api.post(`/admin/restaurants/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+    }
+    return api.put(`/admin/restaurants/${id}`, data);
+  },
+  createRestaurant: (data) => {
+    const config = data instanceof FormData
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : undefined;
+    return api.post('/admin/restaurants', data, config);
+  },
   deleteRestaurant: (id) => api.delete(`/admin/restaurants/${id}`),
   getDietMenu: () => api.get('/admin/diet-menu'),
   updateDietMenu: (items) => api.post('/admin/diet-menu/update', { items }),
   getRestaurantRatings: (restaurantId, params) => api.get(`/admin/restaurant-ratings/${restaurantId}`, { params }),
   getRestaurantMenuItems: (restaurantId) => api.get(`/admin/restaurants/${restaurantId}/menu-items`),
-  getRestaurantOrders: (restaurantId) => api.get(`/admin/restaurants/${restaurantId}/orders`),
   createMenuItem: (restaurantId, data) => {
     const isFormData = data instanceof FormData;
     const config = isFormData
